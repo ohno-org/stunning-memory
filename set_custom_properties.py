@@ -122,7 +122,7 @@ class CustomPropertySetter:
                 ]
             }
 
-            response = requests.patch(url, headers=headers, json=data)
+            response = requests.patch(url, headers=headers, json=data, timeout=30)
             response.raise_for_status()
 
             logger.info(
@@ -131,13 +131,29 @@ class CustomPropertySetter:
             return True
 
         except requests.exceptions.HTTPError as e:
+            # Log only status code to avoid exposing sensitive information
             logger.error(
-                f"✗ Failed to set property on {repo.full_name}: {e.response.status_code} - {e.response.text}"
+                f"✗ Failed to set property on {repo.full_name}: HTTP {e.response.status_code}"
+            )
+            return False
+        except requests.exceptions.ConnectionError:
+            logger.error(
+                f"✗ Connection error setting property on {repo.full_name}"
+            )
+            return False
+        except requests.exceptions.Timeout:
+            logger.error(
+                f"✗ Request timeout setting property on {repo.full_name}"
+            )
+            return False
+        except requests.exceptions.RequestException as e:
+            logger.error(
+                f"✗ Request error setting property on {repo.full_name}: {type(e).__name__}"
             )
             return False
         except Exception as e:
             logger.error(
-                f"✗ Unexpected error setting property on {repo.full_name}: {e}"
+                f"✗ Unexpected error setting property on {repo.full_name}: {type(e).__name__}"
             )
             return False
 
