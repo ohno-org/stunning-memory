@@ -37,6 +37,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Configuration constants
+DEFAULT_REQUEST_TIMEOUT = 30  # seconds
+
 
 class CustomPropertySetter:
     """Class to handle setting custom properties on GitHub repositories."""
@@ -122,7 +125,7 @@ class CustomPropertySetter:
                 ]
             }
 
-            response = requests.patch(url, headers=headers, json=data, timeout=30)
+            response = requests.patch(url, headers=headers, json=data, timeout=DEFAULT_REQUEST_TIMEOUT)
             response.raise_for_status()
 
             logger.info(
