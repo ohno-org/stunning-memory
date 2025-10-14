@@ -23,7 +23,7 @@ A Python script to set custom properties on all repositories in a GitHub organiz
 
 1. Clone this repository:
 ```bash
-git clone https://github.com/ohno-org/stunning-memory.git
+git clone <repository-url>
 cd stunning-memory
 ```
 

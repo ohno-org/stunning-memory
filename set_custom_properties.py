@@ -21,8 +21,12 @@ from typing import Dict, List, Optional
 try:
     from github import Github, GithubException, Auth
     from github.Repository import Repository
-except ImportError:
-    print("Error: PyGithub library not found. Install it with: pip install PyGithub")
+    import requests
+except ImportError as e:
+    if "github" in str(e):
+        print("Error: PyGithub library not found. Install it with: pip install PyGithub")
+    else:
+        print(f"Error: Required library not found: {e}")
     sys.exit(1)
 
 
@@ -47,6 +51,7 @@ class CustomPropertySetter:
         """
         auth = Auth.Token(token)
         self.github = Github(auth=auth)
+        self.token = token
         self.org_name = org_name
         self.org = None
 
@@ -101,10 +106,11 @@ class CustomPropertySetter:
             True if successful, False otherwise
         """
         try:
-            # Using the underlying REST API for custom properties
-            url = f"/repos/{repo.full_name}/properties/values"
+            # Using direct HTTP request for custom properties API
+            url = f"https://api.github.com/repos/{repo.full_name}/properties/values"
             headers = {
                 "Accept": "application/vnd.github+json",
+                "Authorization": f"Bearer {self.token}",
                 "X-GitHub-Api-Version": "2022-11-28"
             }
             data = {
@@ -116,22 +122,17 @@ class CustomPropertySetter:
                 ]
             }
 
-            # Use the internal requester from PyGithub
-            repo._requester.requestJsonAndCheck(
-                "PATCH",
-                url,
-                input=data,
-                headers=headers
-            )
+            response = requests.patch(url, headers=headers, json=data)
+            response.raise_for_status()
 
             logger.info(
                 f"✓ Set {property_name}={property_value} on {repo.full_name}"
             )
             return True
 
-        except GithubException as e:
+        except requests.exceptions.HTTPError as e:
             logger.error(
-                f"✗ Failed to set property on {repo.full_name}: {e}"
+                f"✗ Failed to set property on {repo.full_name}: {e.response.status_code} - {e.response.text}"
             )
             return False
         except Exception as e:
@@ -295,11 +296,20 @@ Environment Variables:
 
     if args.properties:
         for prop in args.properties:
+            prop = prop.strip()
+            if not prop:
+                logger.error("Empty property provided")
+                sys.exit(1)
             if '=' not in prop:
                 logger.error(f"Invalid property format: {prop}. Expected 'name=value'")
                 sys.exit(1)
             name, value = prop.split('=', 1)
-            properties[name.strip()] = value.strip()
+            name = name.strip()
+            value = value.strip()
+            if not name:
+                logger.error(f"Property name cannot be empty in: {prop}")
+                sys.exit(1)
+            properties[name] = value
 
     if not properties:
         logger.error(
